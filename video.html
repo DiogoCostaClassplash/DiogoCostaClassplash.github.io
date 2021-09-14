@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+	* {
+		touch-action: none;
+		overflow: hidden;
+		margin: 0px;
+	}
+	#player {
+		pointer-events: none;
+	}
+	</style>
+</head>
+<body>
+	<div id="player"></div>
+
+	<script>
+		var player;
+		var videoId;
+		var preBufferingVideo;
+		var songStartTime;
+		var useAutoQuality;
+
+		function onYouTubeIframeAPIReady() {
+			player = new YT.Player('player', {
+				height: window.innerHeight,
+				width: window.innerWidth,
+				videoId: videoId,
+				playerVars: {
+					autoplay: 0,
+					controls: 0,
+					disablekb: 1,
+					modestbranding: 1,
+					playsinline: 1, // Has to be 1 because of iPhone
+					fs: 0,	// Disable fullscreen button
+					iv_load_policy: 3,	// Disable notations on video
+					rel: 0,	// no related videos
+					showinfo: 0,
+					enablejsapi: 1,
+					autohide: 0, // for extra visual UI?
+					// origin: ??	// domain specification
+				},
+				events: {
+					onReady: onPlayerReady,
+					onStateChange: onPlayerStateChange,
+					onError: onPlayerError
+				}
+			});
+		}
+
+		function setupYoutubePlayer(videoId_, songStartTime_, useAutoQuality_) {
+			// This call is to tell the Embeded that it can set visibility to false.
+			// We needed it visible to get the inner height and width values for the embed player
+			Unity.call("visible");
+			videoId = videoId_;
+			songStartTime = songStartTime_;
+			useAutoQuality = useAutoQuality_;
+			var scriptElement = document.createElement('script');
+			scriptElement.src = "https://www.youtube.com/iframe_api";
+			document.body.appendChild(scriptElement);
+		}
+
+		// We have to do this to "pre-buffer" the video. We mute the video and start playing it,
+		// when first receiving the state of playing we pause the video, and only then send the "ready"
+		// event.
+		function onPlayerReady(event) {
+			preBufferingVideo = true;
+			player.mute();
+			player.seekTo(songStartTime);
+			// By default we set quality to small. If use auto quality, we let YouTube decide
+			// the best quality for the device
+			if (useAutoQuality != true) player.setPlaybackQuality('small');
+		}
+
+		function onPlayerStateChange(event) {
+			if (preBufferingVideo)
+			{
+				if (event.data == 1)
+				{
+					preBufferingVideo = false;
+					player.pauseVideo();
+					Unity.call("ready|"+ player.getDuration());
+				}
+			}
+			else Unity.call("state|" + event.data);
+		}
+
+		function onPlayerError(event) {
+			// 2: Invalid parameter value
+			// 5: Cannot play in HTML5
+			// 100: Video requested not found (deleted or private)
+			// 101 and 150: cannot be played on embedded
+			// 150 can also mean that it can't load locally
+			Unity.call("error|" + event.data);
+		}
+
+		function playVideo() {
+			player.playVideo();
+		}
+
+		function pauseVideo() {
+			player.pauseVideo();
+		}
+
+		function seekTo(time) {
+			player.seekTo(time, true);
+		}
+
+		function stop() {
+			player.stopVideo();
+		}
+
+		function setMute() {
+			player.mute();
+		}
+
+		function setUnMute() {
+			player.unMute();
+		}
+
+		function setPlaybackRate(speed) {
+			player.setPlaybackRate(speed);
+		}
+
+		function setVolume(volume) {
+			player.setVolume(volume);
+		}
+
+		function setSize() {
+			player.setSize(window.innerWidth, window.innerHeight);
+		}
+
+		function videoDelayPing() {
+			var date = new Date();
+			Unity.call("ping|" + player.getCurrentTime() + "|" + date.getTime());
+		}
+	</script>
+</body>
+</html>
